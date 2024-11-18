@@ -6,11 +6,21 @@
 > This comes with obvious risks. The Anthropic agent can control everything on your Mac. Please be careful.
 > Anthropic's new Claude 3.5 Sonnet model refuses to do unsafe things like purchase items or download illegal content.
 
+
+## Fork
+ - Forked from https://github.com/deedy
+ - by Bård Ove Myhr <bard.myhr@gmail.com>
+
+### Changes
+ - Changed from Keyboard to pyautogui (some keyboard shortcuts was not working)
+ - Changed from native screen capture to pyautogui (screen capture was not working properly, only capturing background)
+
+
 ## Features
 
 - Native macOS GUI interaction (no Docker required)
-- Screen capture using native macOS commands
-- Keyboard and mouse control through cliclick
+- Screen capture using pyautogui
+- Keyboard and mouse control through cliclick, pyautogui
 - Multiple LLM provider support (Anthropic, Bedrock, Vertex)
 - Streamlit-based interface
 - Automatic screen resolution scaling

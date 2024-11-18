@@ -3,7 +3,6 @@ import base64
 import os
 import shlex
 import pyautogui
-import keyboard
 from enum import StrEnum
 from pathlib import Path
 from typing import Literal, TypedDict
@@ -144,24 +143,44 @@ class ComputerTool(BaseAnthropicTool):
                     "Escape": "esc",
                     "command": "command",
                     "cmd": "command",
-                    "alt": "alt",
+                    "alt": "option",  # macOS uses option instead of alt
                     "shift": "shift",
-                    "ctrl": "ctrl"
+                    "ctrl": "ctrl",
+                    "t": "t",
+                    "c": "c",
+                    "v": "v",
+                    "x": "x",
+                    "a": "a",
+                    "z": "z"
                 }
 
                 try:
                     if "+" in text:
-                        # Handle combinations like "ctrl+c"
+                        # Handle combinations like "command+t"
                         keys = text.split("+")
                         mapped_keys = [key_map.get(k.strip(), k.strip()) for k in keys]
+                        
+                        # Press all modifier keys
+                        for key in mapped_keys[:-1]:
+                            await asyncio.get_event_loop().run_in_executor(
+                                None, pyautogui.keyDown, key
+                            )
+                        
+                        # Press and release the main key
                         await asyncio.get_event_loop().run_in_executor(
-                            None, keyboard.press_and_release, '+'.join(mapped_keys)
+                            None, pyautogui.press, mapped_keys[-1]
                         )
+                        
+                        # Release all modifier keys in reverse order
+                        for key in reversed(mapped_keys[:-1]):
+                            await asyncio.get_event_loop().run_in_executor(
+                                None, pyautogui.keyUp, key
+                            )
                     else:
                         # Handle single keys
                         mapped_key = key_map.get(text, text)
                         await asyncio.get_event_loop().run_in_executor(
-                            None, keyboard.press_and_release, mapped_key
+                            None, pyautogui.press, mapped_key
                         )
 
                     return ToolResult(output=f"Pressed key: {text}", error=None, base64_image=None)
@@ -223,9 +242,18 @@ class ComputerTool(BaseAnthropicTool):
         output_dir.mkdir(parents=True, exist_ok=True)
         path = output_dir / f"screenshot_{uuid4().hex}.png"
 
-        # Use macOS native screencapture
-        screenshot_cmd = f"screencapture -x {path}"
-        result = await self.shell(screenshot_cmd, take_screenshot=False)
+        # Use PyAutoGUI for screenshot
+        region = None
+        if self.display_num is not None and self.display_num > 0:
+            # Get list of all monitors
+            monitors = pyautogui.getAllMonitors()
+            if self.display_num <= len(monitors):
+                monitor = monitors[self.display_num - 1]
+                region = (monitor.left, monitor.top, monitor.width, monitor.height)
+
+        # Take the screenshot
+        screenshot = pyautogui.screenshot(region=region)
+        screenshot.save(str(path))
 
         if self._scaling_enabled:
             x, y = SCALE_DESTINATION['width'], SCALE_DESTINATION['height']
@@ -235,10 +263,12 @@ class ComputerTool(BaseAnthropicTool):
             )
 
         if path.exists():
-            return result.replace(
+            return ToolResult(
+                output="",
+                error="",
                 base64_image=base64.b64encode(path.read_bytes()).decode()
             )
-        raise ToolError(f"Failed to take screenshot: {result.error}")
+        raise ToolError("Failed to take screenshot")
 
     async def shell(self, command: str, take_screenshot=False) -> ToolResult:
         """Run a shell command and return the output, error, and optionally a screenshot."""
